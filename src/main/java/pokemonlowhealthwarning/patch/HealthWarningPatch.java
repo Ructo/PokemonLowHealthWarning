@@ -6,6 +6,7 @@ import com.megacrit.cardcrawl.characters.AbstractPlayer;
 import com.megacrit.cardcrawl.core.CardCrawlGame;
 import com.megacrit.cardcrawl.dungeons.AbstractDungeon;
 import com.megacrit.cardcrawl.rooms.AbstractRoom;
+import pokemonlowhealthwarning.ModFile;
 import pokemonlowhealthwarning.util.ProAudio;
 
 import static pokemonlowhealthwarning.ModFile.makeID;
@@ -14,7 +15,6 @@ import static pokemonlowhealthwarning.util.Wiz.playAudio;
 @SpirePatch(clz = AbstractPlayer.class, method = "damage")
 public class HealthWarningPatch {
 
-    private static boolean isPlaying = false;
 
     public static void Postfix(AbstractPlayer player, DamageInfo info) {
         float healthThreshold = player.maxHealth * 0.2f;
@@ -39,8 +39,8 @@ public class HealthWarningPatch {
         }
     }
 
-    private static void checkPlayerHealth(AbstractPlayer player, float healthThreshold) {
-        if (player.currentHealth <= healthThreshold && player.currentHealth > 0 && inCombat() && !isPlaying) {
+    public static void checkPlayerHealth(AbstractPlayer player, float healthThreshold) {
+        if (player.currentHealth <= healthThreshold && player.currentHealth > 0 && inCombat() && !ModFile.isPlaying) {
             CardCrawlGame.music.silenceBGM();
             startAudio();
         }
@@ -57,18 +57,17 @@ public class HealthWarningPatch {
     private static void startAudio() {
         CardCrawlGame.music.silenceBGM();
         playAudio(ProAudio.warningintro);
-        isPlaying = true;
+        ModFile.isPlaying = true;
     }
 
-    private static void stopAudio() {
-        if (isPlaying) {
+    public static void stopAudio() {
+        if (ModFile.isPlaying) {
             CardCrawlGame.sound.stop(makeID(ProAudio.warningintro.name()));
             CardCrawlGame.sound.stop(makeID(ProAudio.warningloop.name()));
             CardCrawlGame.music.unsilenceBGM();
-            isPlaying = false;
+            ModFile.isPlaying = false;
         }
     }
-
     private static String makeID(String id) {
         return "pokemonlowhealthwarning:" + id;
     }

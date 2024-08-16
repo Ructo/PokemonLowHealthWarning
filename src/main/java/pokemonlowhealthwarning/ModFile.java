@@ -11,7 +11,11 @@ import com.badlogic.gdx.math.MathUtils;
 import com.evacipated.cardcrawl.mod.stslib.Keyword;
 import com.evacipated.cardcrawl.modthespire.lib.SpireInitializer;
 import com.google.gson.Gson;
+import com.megacrit.cardcrawl.actions.AbstractGameAction;
+import com.megacrit.cardcrawl.characters.AbstractPlayer;
+import com.megacrit.cardcrawl.core.CardCrawlGame;
 import com.megacrit.cardcrawl.core.Settings;
+import com.megacrit.cardcrawl.dungeons.AbstractDungeon;
 import com.megacrit.cardcrawl.localization.CardStrings;
 import com.megacrit.cardcrawl.localization.CharacterStrings;
 import com.megacrit.cardcrawl.localization.OrbStrings;
@@ -21,10 +25,14 @@ import com.megacrit.cardcrawl.localization.RelicStrings;
 import com.megacrit.cardcrawl.localization.StanceStrings;
 import com.megacrit.cardcrawl.localization.UIStrings;
 import com.megacrit.cardcrawl.potions.AbstractPotion;
+import com.megacrit.cardcrawl.rooms.AbstractRoom;
 import com.megacrit.cardcrawl.unlock.UnlockTracker;
 
 import pokemonlowhealthwarning.util.ProAudio;
 import java.nio.charset.StandardCharsets;
+
+import static pokemonlowhealthwarning.patch.HealthWarningPatch.checkPlayerHealth;
+import static pokemonlowhealthwarning.patch.HealthWarningPatch.stopAudio;
 
 @SuppressWarnings({"unused", "WeakerAccess"})
 @SpireInitializer
@@ -34,6 +42,11 @@ public class ModFile implements
         EditStringsSubscriber,
         EditKeywordsSubscriber,
         EditCharactersSubscriber,
+        PostBattleSubscriber,
+        OnStartBattleSubscriber,
+        OnPlayerTurnStartSubscriber,
+        PostDungeonInitializeSubscriber,
+        PostUpdateSubscriber,
         AddAudioSubscriber {
 
     public static final String modID = "pokemonlowhealthwarning";
@@ -71,7 +84,7 @@ public class ModFile implements
         }
         return "eng";
     }
-
+    public static boolean isPlaying = false;
     public ModFile() {
         BaseMod.subscribe(this);
 
@@ -104,6 +117,8 @@ public class ModFile implements
 
     public static void initialize() {
         ModFile thismod = new ModFile();
+
+
     }
 
     @Override
@@ -148,6 +163,59 @@ public class ModFile implements
             for (Keyword keyword : keywords) {
                 BaseMod.addKeyword(modID, keyword.PROPER_NAME, keyword.NAMES, keyword.DESCRIPTION);
             }
+        }
+    }
+
+    @Override
+    public void receivePostBattle(AbstractRoom abstractRoom) {
+        CardCrawlGame.sound.stop(makeID(ProAudio.warningintro.name()));
+        CardCrawlGame.sound.stop(makeID(ProAudio.warningloop.name()));
+        CardCrawlGame.music.unsilenceBGM();
+        isPlaying = false;
+    }
+
+    @Override
+    public void receiveOnBattleStart(AbstractRoom abstractRoom) {
+        // Add a delayed action to ensure combat has fully initialized
+        AbstractDungeon.actionManager.addToBottom(new AbstractGameAction() {
+            @Override
+            public void update() {
+                AbstractPlayer player = AbstractDungeon.player;
+                float healthThreshold = player.maxHealth * 0.2f;
+                checkPlayerHealth(player, healthThreshold);
+                isDone = true;  // Mark the action as done
+            }
+        });
+    }
+
+    public void receivePostDungeon() {
+        CardCrawlGame.sound.stop(makeID(ProAudio.warningintro.name()));
+        CardCrawlGame.sound.stop(makeID(ProAudio.warningloop.name()));
+        CardCrawlGame.music.unsilenceBGM();
+        isPlaying = false;
+    }
+    @Override
+    public void receiveOnPlayerTurnStart() {
+        AbstractPlayer player = AbstractDungeon.player;
+        float healthThreshold = player.maxHealth * 0.2f;
+        checkPlayerHealth(player, healthThreshold);
+    }
+
+    @Override
+    public void receivePostDungeonInitialize() {
+        CardCrawlGame.sound.stop(makeID(ProAudio.warningintro.name()));
+        CardCrawlGame.sound.stop(makeID(ProAudio.warningloop.name()));
+        CardCrawlGame.music.unsilenceBGM();
+        isPlaying = false;
+    }
+    @Override
+    public void receivePostUpdate() {
+        // Safeguard to stop audio if the player exits to the main menu
+        if (CardCrawlGame.dungeon == null || AbstractDungeon.currMapNode == null) {
+            CardCrawlGame.sound.stop(makeID(ProAudio.warningintro.name()));
+            CardCrawlGame.sound.stop(makeID(ProAudio.warningloop.name()));
+            CardCrawlGame.music.unsilenceBGM();
+            isPlaying = false;
         }
     }
 }

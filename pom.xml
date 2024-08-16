@@ -4,7 +4,7 @@
     <groupId>UnimportantInfo</groupId>
 
     <artifactId>pokemonlowhealthwarning</artifactId>
-    <version>0.0.1</version>
+    <version>1.0.1</version>
     <name>Pokemon Low Health Warning</name>
     <description>It plays low health music from Pokemon Black when you drop below 20% HP. Credit music to Nintendo/Gamefreak</description>
     <!-- Change the above for mod information. -->
