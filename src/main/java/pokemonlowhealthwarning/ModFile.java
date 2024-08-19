@@ -1,47 +1,29 @@
 package pokemonlowhealthwarning;
 
-import basemod.AutoAdd;
 import basemod.BaseMod;
-import basemod.abstracts.DynamicVariable;
-import basemod.helpers.RelicType;
 import basemod.interfaces.*;
-import com.badlogic.gdx.Gdx;
-import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.math.MathUtils;
-import com.evacipated.cardcrawl.mod.stslib.Keyword;
 import com.evacipated.cardcrawl.modthespire.lib.SpireInitializer;
-import com.google.gson.Gson;
 import com.megacrit.cardcrawl.actions.AbstractGameAction;
 import com.megacrit.cardcrawl.characters.AbstractPlayer;
 import com.megacrit.cardcrawl.core.CardCrawlGame;
-import com.megacrit.cardcrawl.core.Settings;
 import com.megacrit.cardcrawl.dungeons.AbstractDungeon;
-import com.megacrit.cardcrawl.localization.CardStrings;
-import com.megacrit.cardcrawl.localization.CharacterStrings;
-import com.megacrit.cardcrawl.localization.OrbStrings;
-import com.megacrit.cardcrawl.localization.PotionStrings;
-import com.megacrit.cardcrawl.localization.PowerStrings;
-import com.megacrit.cardcrawl.localization.RelicStrings;
-import com.megacrit.cardcrawl.localization.StanceStrings;
-import com.megacrit.cardcrawl.localization.UIStrings;
-import com.megacrit.cardcrawl.potions.AbstractPotion;
+import com.megacrit.cardcrawl.monsters.AbstractMonster;
 import com.megacrit.cardcrawl.rooms.AbstractRoom;
-import com.megacrit.cardcrawl.unlock.UnlockTracker;
-
+import com.megacrit.cardcrawl.rooms.MonsterRoom;
+import com.megacrit.cardcrawl.rooms.MonsterRoomBoss;
 import pokemonlowhealthwarning.util.ProAudio;
-import java.nio.charset.StandardCharsets;
 
-import static pokemonlowhealthwarning.patch.HealthWarningPatch.checkPlayerHealth;
-import static pokemonlowhealthwarning.patch.HealthWarningPatch.stopAudio;
+import static basemod.BaseMod.logger;
+import static com.megacrit.cardcrawl.monsters.AbstractMonster.playBossStinger;
+import static pokemonlowhealthwarning.util.Wiz.isInCombat;
 
-@SuppressWarnings({"unused", "WeakerAccess"})
 @SpireInitializer
 public class ModFile implements
         EditCardsSubscriber,
         EditRelicsSubscriber,
         EditStringsSubscriber,
         EditKeywordsSubscriber,
-        EditCharactersSubscriber,
         PostBattleSubscriber,
         OnStartBattleSubscriber,
         OnPlayerTurnStartSubscriber,
@@ -50,172 +32,195 @@ public class ModFile implements
         AddAudioSubscriber {
 
     public static final String modID = "pokemonlowhealthwarning";
+    public static boolean isPlaying = false;
+    public static String currentTempMusicKey = null;
+
+    private static final String[] SPECIAL_TEMP_TRACKS = {
+            "SHOP", "SHRINE", "MINDBLOOM", "CREDITS"
+    };
+
+    public ModFile() {
+        BaseMod.subscribe(this);
+    }
+
+    public static void initialize() {
+        new ModFile();
+    }
+
+    @Override
+    public void receiveEditStrings() {
+        // Localization loading...
+    }
+
+    @Override
+    public void receiveAddAudio() {
+        for (ProAudio a : ProAudio.values()) {
+            BaseMod.addAudio(makeID(a.name()), "pokemonlowhealthwarningResources/audio/" + a.name().toLowerCase() + ".ogg");
+        }
+    }
+
+    @Override
+    public void receiveEditCards() {
+        // Implement card edits here if needed
+    }
+
+    @Override
+    public void receiveEditKeywords() {
+        // Implement keyword edits here if needed
+    }
+
+    @Override
+    public void receiveEditRelics() {
+        // Implement relic edits here if needed
+    }
 
     public static String makeID(String idText) {
         return modID + ":" + idText;
     }
 
-    public static Color characterColor = new Color(MathUtils.random(), MathUtils.random(), MathUtils.random(), 1);
-
-    public static final String SHOULDER1 = makeCharacterPath("mainChar/shoulder.png");
-    public static final String SHOULDER2 = makeCharacterPath("mainChar/shoulder2.png");
-    public static final String CORPSE = makeCharacterPath("mainChar/corpse.png");
-    private static final String ATTACK_S_ART = makeImagePath("512/attack.png");
-    private static final String SKILL_S_ART = makeImagePath("512/skill.png");
-    private static final String POWER_S_ART = makeImagePath("512/power.png");
-    private static final String CARD_ENERGY_S = makeImagePath("512/energy.png");
-    private static final String TEXT_ENERGY = makeImagePath("512/text_energy.png");
-    private static final String ATTACK_L_ART = makeImagePath("1024/attack.png");
-    private static final String SKILL_L_ART = makeImagePath("1024/skill.png");
-    private static final String POWER_L_ART = makeImagePath("1024/power.png");
-    private static final String CARD_ENERGY_L = makeImagePath("1024/energy.png");
-    private static final String CHARSELECT_BUTTON = makeImagePath("charSelect/charButton.png");
-    private static final String CHARSELECT_PORTRAIT = makeImagePath("charSelect/charBG.png");
-
-    public static Settings.GameLanguage[] SupportedLanguages = {
-            Settings.GameLanguage.ENG,
-    };
-
-    private String getLangString() {
-        for (Settings.GameLanguage lang : SupportedLanguages) {
-            if (lang.equals(Settings.language)) {
-                return Settings.language.name().toLowerCase();
-            }
-        }
-        return "eng";
-    }
-    public static boolean isPlaying = false;
-    public ModFile() {
-        BaseMod.subscribe(this);
-
+    public static void playTempBgm(String key, boolean loop) {
+        // Play the temp BGM and track the current key
+        CardCrawlGame.music.playTempBgmInstantly(key, loop);
+        currentTempMusicKey = key;
     }
 
-    public static String makePath(String resourcePath) {
-        return modID + "Resources/" + resourcePath;
-    }
-
-    public static String makeImagePath(String resourcePath) {
-        return modID + "Resources/images/" + resourcePath;
-    }
-
-    public static String makeRelicPath(String resourcePath) {
-        return modID + "Resources/images/relics/" + resourcePath;
-    }
-
-    public static String makePowerPath(String resourcePath) {
-        return modID + "Resources/images/powers/" + resourcePath;
-    }
-
-    public static String makeCharacterPath(String resourcePath)
-    {
-        return modID + "Resources/images/char/" + resourcePath;
-    }
-
-    public static String makeCardPath(String resourcePath) {
-        return modID + "Resources/images/cards/" + resourcePath;
-    }
-
-    public static void initialize() {
-        ModFile thismod = new ModFile();
-
-
-    }
-
-    @Override
-    public void receiveEditCharacters() {
-    }
-
-    @Override
-    public void receiveEditRelics() {
-
-    }
-
-    @Override
-    public void receiveEditCards() {
-
-    }
-
-    @Override
-    public void receiveEditStrings() {
-        BaseMod.loadCustomStringsFile(CardStrings.class, modID + "Resources/localization/" + getLangString() + "/Cardstrings.json");
-        BaseMod.loadCustomStringsFile(RelicStrings.class, modID + "Resources/localization/" + getLangString() + "/Relicstrings.json");
-        BaseMod.loadCustomStringsFile(CharacterStrings.class, modID + "Resources/localization/" + getLangString() + "/Charstrings.json");
-        BaseMod.loadCustomStringsFile(PowerStrings.class, modID + "Resources/localization/" + getLangString() + "/Powerstrings.json");
-        BaseMod.loadCustomStringsFile(UIStrings.class, modID + "Resources/localization/" + getLangString() + "/UIstrings.json");
-        BaseMod.loadCustomStringsFile(OrbStrings.class, modID + "Resources/localization/" + getLangString() + "/Orbstrings.json");
-        BaseMod.loadCustomStringsFile(StanceStrings.class, modID + "Resources/localization/" + getLangString() + "/Stancestrings.json");
-        BaseMod.loadCustomStringsFile(PotionStrings.class, modID + "Resources/localization/" + getLangString() + "/Potionstrings.json");
-    }
-
-    @Override
-    public void receiveAddAudio() {
-        for (ProAudio a : ProAudio.values())
-            BaseMod.addAudio(makeID(a.name()), makePath("audio/" + a.name().toLowerCase() + ".ogg"));
-    }
-
-    @Override
-    public void receiveEditKeywords() {
-        Gson gson = new Gson();
-        String json = Gdx.files.internal(modID + "Resources/localization/" + getLangString() + "/Keywordstrings.json").readString(String.valueOf(StandardCharsets.UTF_8));
-        com.evacipated.cardcrawl.mod.stslib.Keyword[] keywords = gson.fromJson(json, com.evacipated.cardcrawl.mod.stslib.Keyword[].class);
-
-        if (keywords != null) {
-            for (Keyword keyword : keywords) {
-                BaseMod.addKeyword(modID, keyword.PROPER_NAME, keyword.NAMES, keyword.DESCRIPTION);
-            }
-        }
-    }
-
-    @Override
-    public void receivePostBattle(AbstractRoom abstractRoom) {
-        CardCrawlGame.sound.stop(makeID(ProAudio.warningintro.name()));
-        CardCrawlGame.sound.stop(makeID(ProAudio.warningloop.name()));
-        CardCrawlGame.music.unsilenceBGM();
-        isPlaying = false;
+    public static void stopTempBgm() {
+        // Stop temp BGM and reset the tracking variable
+        CardCrawlGame.music.silenceTempBgmInstantly();
+        currentTempMusicKey = null;
     }
 
     @Override
     public void receiveOnBattleStart(AbstractRoom abstractRoom) {
-        // Add a delayed action to ensure combat has fully initialized
-        AbstractDungeon.actionManager.addToBottom(new AbstractGameAction() {
-            @Override
-            public void update() {
-                AbstractPlayer player = AbstractDungeon.player;
-                float healthThreshold = player.maxHealth * 0.2f;
-                checkPlayerHealth(player, healthThreshold);
-                isDone = true;  // Mark the action as done
-            }
-        });
+        // Check player health and special case logic at the start of combat
+        CardCrawlGame.music.silenceTempBgmInstantly();
+        ModFile.isPlaying = false;
+        AbstractDungeon.actionManager.addToBottom(checkPlayerHealth());
     }
 
-    public void receivePostDungeon() {
-        CardCrawlGame.sound.stop(makeID(ProAudio.warningintro.name()));
-        CardCrawlGame.sound.stop(makeID(ProAudio.warningloop.name()));
-        CardCrawlGame.music.unsilenceBGM();
-        isPlaying = false;
-    }
     @Override
     public void receiveOnPlayerTurnStart() {
-        AbstractPlayer player = AbstractDungeon.player;
-        float healthThreshold = player.maxHealth * 0.2f;
-        checkPlayerHealth(player, healthThreshold);
+        // Check health at the start of each player turn
+        checkPlayerHealth();
+    }
+
+    @Override
+    public void receivePostBattle(AbstractRoom abstractRoom) {
+        // Stop health warning music at the end of battle
+        stopHealthWarningMusic();
     }
 
     @Override
     public void receivePostDungeonInitialize() {
-        CardCrawlGame.sound.stop(makeID(ProAudio.warningintro.name()));
-        CardCrawlGame.sound.stop(makeID(ProAudio.warningloop.name()));
-        CardCrawlGame.music.unsilenceBGM();
-        isPlaying = false;
+        if (CardCrawlGame.isInARun() && AbstractDungeon.currMapNode != null && AbstractDungeon.getCurrRoom() != null && AbstractDungeon.actionManager != null) {
+            ModFile.isPlaying = false;
+            checkPlayerHealth();
+        }
     }
+
     @Override
     public void receivePostUpdate() {
-        // Safeguard to stop audio if the player exits to the main menu
-        if (CardCrawlGame.dungeon == null || AbstractDungeon.currMapNode == null) {
-            CardCrawlGame.sound.stop(makeID(ProAudio.warningintro.name()));
-            CardCrawlGame.sound.stop(makeID(ProAudio.warningloop.name()));
-            CardCrawlGame.music.unsilenceBGM();
-            isPlaying = false;
+        if (CardCrawlGame.isInARun() && AbstractDungeon.currMapNode != null && AbstractDungeon.actionManager != null) {
+            if (AbstractDungeon.getCurrRoom() == null || !AbstractDungeon.getCurrRoom().phase.equals(AbstractRoom.RoomPhase.COMBAT)) {
+                stopHealthWarningMusic();
+            }
+        }
+    }
+
+    // Utility method to check player health and trigger the appropriate action
+    public static AbstractGameAction checkPlayerHealth() {
+        AbstractPlayer player = AbstractDungeon.player;
+        float healthThreshold = player.maxHealth * 0.2f;
+
+        if (player.currentHealth <= healthThreshold && player.currentHealth > 0 && !ModFile.isPlaying) {
+            // Trigger the health warning music
+            playTempBgm("warningintro", false);
+            playHealthWarningMusic();
+            System.out.println("Playing warning music");
+            ModFile.isPlaying = true;
+
+        } else if (player.currentHealth > healthThreshold && ModFile.isPlaying) {
+            // Stop the health warning music if the player’s health recovers
+            stopHealthWarningMusic();
+            System.out.println("Stopping warning music");
+            ModFile.isPlaying = false;
+        }
+        return null;
+    }
+
+
+    public static boolean isSpecialTempTrackPlaying() {
+        // Check if the current playing temp music matches any of the special tracks
+        if (currentTempMusicKey != null) {
+            for (String specialTrack : SPECIAL_TEMP_TRACKS) {
+                if (currentTempMusicKey.equals(specialTrack)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    public static void playHealthWarningMusic() {
+        if (!isSpecialTempTrackPlaying()) {
+            CardCrawlGame.music.silenceTempBgmInstantly();  // Silence all temp music first
+            ModFile.playTempBgm("warningintro", false);     // Start playing warning music
+            ModFile.isPlaying = true;
+        }
+    }
+
+    public static void stopHealthWarningMusic() {
+        if (isPlaying) {
+            boolean isFightingLagavulin = false;
+            boolean isFightingHexaghost = false;
+            boolean isFightingHeart = false;
+
+            // Check for specific elite/boss monsters
+            if (AbstractDungeon.getCurrRoom() instanceof MonsterRoom) {
+                for (AbstractMonster mo : AbstractDungeon.getCurrRoom().monsters.monsters) {
+                    if (mo.name.equals("Lagavulin")) {
+                        isFightingLagavulin = true;
+                    } else if (mo.name.equals("Hexaghost")) {
+                        isFightingHexaghost = true;
+                    } else if (mo.name.equals("CorruptHeart")) {
+                        isFightingHeart = true;
+                    }
+                }
+
+                // Handle music logic based on whether the room phase is COMPLETE or still in combat
+                if (AbstractDungeon.getCurrRoom().phase != AbstractRoom.RoomPhase.COMPLETE) {
+                    if (isFightingLagavulin) {
+                        // Resume Elite music for Lagavulin
+                        CardCrawlGame.music.silenceTempBgmInstantly();
+                        CardCrawlGame.music.playTempBgmInstantly("ELITE");
+                    } else if (isFightingHexaghost || isFightingHeart) {
+                        // Stop music after custom check for Hexaghost or the Heart
+                        CardCrawlGame.music.silenceTempBgmInstantly();
+                    } else if (AbstractDungeon.getCurrRoom() instanceof MonsterRoomBoss) {
+                        // Play the regular boss music before victory
+                        CardCrawlGame.music.silenceTempBgmInstantly();
+                        CardCrawlGame.music.playTempBgmInstantly("BOSS_BOTTOM");
+                    } else {
+                        // Resume normal music for regular rooms
+                        CardCrawlGame.music.silenceTempBgmInstantly();
+                        CardCrawlGame.music.unsilenceBGM();
+                    }
+                } else {
+                    // If the room phase is COMPLETE and it's not a boss room, resume normal BGM
+                    if (!(AbstractDungeon.getCurrRoom() instanceof MonsterRoomBoss)) {
+                        CardCrawlGame.music.silenceTempBgmInstantly();
+                        CardCrawlGame.music.unsilenceBGM();
+                    } else {
+                        playBossStinger();
+                    }
+                }
+
+                // Reset the health warning music state
+                isPlaying = false;
+            }
         }
     }
 }
+
+
+
