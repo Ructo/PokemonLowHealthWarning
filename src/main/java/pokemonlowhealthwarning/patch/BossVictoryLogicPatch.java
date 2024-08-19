@@ -49,10 +49,7 @@ public class BossVictoryLogicPatch {
             }
         }
 
-        // Stop background music and play the boss stinger
-        CardCrawlGame.music.silenceTempBgmInstantly();
-        CardCrawlGame.music.silenceBGMInstantly();
-        playBossStinger();
+        System.out.println("BOSSVICTORYLOGICPATCH");
 
         // Trigger blights on boss defeat
         for (AbstractBlight blight : AbstractDungeon.player.blights) {

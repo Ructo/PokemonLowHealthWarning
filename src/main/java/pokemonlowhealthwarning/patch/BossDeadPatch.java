@@ -15,15 +15,15 @@ public class BossDeadPatch {
     @SpirePrefixPatch
     public static SpireReturn Prefix() {
         ModFile.isPlaying = false;
-        CardCrawlGame.music.silenceTempBgmInstantly();
-        CardCrawlGame.music.silenceBGMInstantly();
+        System.out.println("BOSSDEADPATCHBEFORE");
         CardCrawlGame.sound.play("BOSS_VICTORY_STINGER");
-
+        System.out.println("BOSSDEADPATCHSTINGER");
         // Play the regular boss stinger for "TheEnding" or normal boss stingers
         if (AbstractDungeon.id.equals("TheEnding")) {
             CardCrawlGame.music.playTempBgmInstantly("STS_EndingStinger_v1.ogg", false);
         } else {
             CardCrawlGame.music.playTempBgmInstantly("STS_BossVictoryStinger_1_v3_MUSIC.ogg", false);
+            System.out.println("BOSSDEADPATCHAFTER");
         }
 
         // Return early to avoid executing the original logic
