@@ -37,7 +37,7 @@ public class ModFile implements
     public static String currentTempMusicKey = null;
 
     private static final String[] SPECIAL_TEMP_TRACKS = {
-            "SHOP", "SHRINE", "MINDBLOOM", "CREDITS"
+            "SHOP", "MINDBLOOM", "CREDITS"
     };
 
     public ModFile() {
@@ -107,7 +107,6 @@ public class ModFile implements
 
     @Override
     public void receivePostBattle(AbstractRoom abstractRoom) {
-        bossBattleEnded = true;
         stopHealthWarningMusic();
     }
 
@@ -177,12 +176,15 @@ public class ModFile implements
                     if (isFightingLagavulin) {
                         CardCrawlGame.music.silenceTempBgmInstantly();
                         CardCrawlGame.music.playTempBgmInstantly("ELITE");
-                    } else if (isFightingHexaghost || isFightingHeart) {
-                        CardCrawlGame.music.silenceTempBgmInstantly();
-                    } else if (AbstractDungeon.getCurrRoom() instanceof MonsterRoomBoss) {
+                    } else if (isFightingHexaghost) {
                         CardCrawlGame.music.silenceTempBgmInstantly();
                         CardCrawlGame.music.playTempBgmInstantly("BOSS_BOTTOM");
-                        System.out.println("Playing boss music");
+                    } else if (isFightingHeart) {
+                        CardCrawlGame.music.silenceTempBgmInstantly();
+                        CardCrawlGame.music.playTempBgmInstantly("BOSS_ENDING");
+                    } else if (AbstractDungeon.getCurrRoom() instanceof MonsterRoomBoss) {
+                        CardCrawlGame.music.silenceTempBgmInstantly();
+                        CardCrawlGame.music.unsilenceBGM();
                     } else {
                         CardCrawlGame.music.silenceTempBgmInstantly();
                         CardCrawlGame.music.unsilenceBGM();
@@ -191,10 +193,12 @@ public class ModFile implements
                     if (!(AbstractDungeon.getCurrRoom() instanceof MonsterRoomBoss)) {
                         CardCrawlGame.music.silenceTempBgmInstantly();
                         CardCrawlGame.music.unsilenceBGM();
+                        System.out.println("Current Room is not boss Unsilence");
                     } else {
-                        isBossStingerPlaying = true;
-                        System.out.println("BossStingerMonsterBoss");
+
+                        bossBattleEnded = true;
                         playBossStinger();
+                        isBossStingerPlaying = true;
                     }
                 }
 
@@ -203,9 +207,11 @@ public class ModFile implements
         }
     }
 
+
     public static boolean isSpecialTempTrackPlaying() {
         if (currentTempMusicKey != null) {
             for (String specialTrack : SPECIAL_TEMP_TRACKS) {
+
                 if (currentTempMusicKey.equals(specialTrack)) {
                     return true;
                 }

@@ -6,6 +6,8 @@ import com.megacrit.cardcrawl.dungeons.AbstractDungeon;
 import com.megacrit.cardcrawl.rooms.AbstractRoom;
 import pokemonlowhealthwarning.ModFile;
 
+import static pokemonlowhealthwarning.ModFile.checkPlayerHealth;
+
 @SpirePatch(clz = AbstractPlayer.class, method = "heal")
 public class HealthWarningHealPatch {
 
@@ -21,13 +23,9 @@ public class HealthWarningHealPatch {
     }
 
     private static void checkHealthWarning(AbstractPlayer player) {
-        float healthThreshold = player.maxHealth * 0.2f;
-        if (player.currentHealth <= healthThreshold && !ModFile.isPlaying) {
-            ModFile.playHealthWarningMusic();
-            ModFile.isPlaying = true;
-        } else if (player.currentHealth > healthThreshold && ModFile.isPlaying) {
-            ModFile.stopHealthWarningMusic();
-            ModFile.isPlaying = false;
-        }
+        checkPlayerHealth();
+        ModFile.playHealthWarningMusic();
     }
 }
+
+
