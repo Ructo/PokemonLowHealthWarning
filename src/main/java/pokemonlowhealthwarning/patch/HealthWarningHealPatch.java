@@ -24,7 +24,7 @@ public class HealthWarningHealPatch {
 
     private static void checkHealthWarning(AbstractPlayer player) {
         checkPlayerHealth();
-        ModFile.playHealthWarningMusic();
+
     }
 }
 
