@@ -8,14 +8,18 @@ import com.megacrit.cardcrawl.actions.AbstractGameAction;
 import com.megacrit.cardcrawl.characters.AbstractPlayer;
 import com.megacrit.cardcrawl.core.CardCrawlGame;
 import com.megacrit.cardcrawl.dungeons.AbstractDungeon;
-import com.megacrit.cardcrawl.events.AbstractEvent;
 import com.megacrit.cardcrawl.events.beyond.MindBloom;
 import com.megacrit.cardcrawl.monsters.AbstractMonster;
-import com.megacrit.cardcrawl.rooms.*;
+import com.megacrit.cardcrawl.monsters.exordium.Lagavulin;
+import com.megacrit.cardcrawl.rooms.AbstractRoom;
+import com.megacrit.cardcrawl.rooms.EventRoom;
+import com.megacrit.cardcrawl.rooms.MonsterRoomBoss;
+import com.megacrit.cardcrawl.rooms.MonsterRoomElite;
+import pokemonlowhealthwarning.patch.HexaghostActivationFieldPatch;
+import pokemonlowhealthwarning.patch.LagavulinSleepPatch;
 import pokemonlowhealthwarning.util.ProAudio;
 
 import static basemod.BaseMod.logger;
-import static com.megacrit.cardcrawl.monsters.AbstractMonster.playBossStinger;
 
 @SpireInitializer
 public class ModFile implements
@@ -96,46 +100,34 @@ public class ModFile implements
             currentRoomType = "BOSS";
         } else if (room instanceof MonsterRoomElite) {
             currentRoomType = "ELITE";
-        } else if (room instanceof MonsterRoom) {
-            currentRoomType = "MONSTER";
-        } else if (room instanceof ShopRoom) {
-            currentRoomType = "SHOP";
         } else if (room instanceof EventRoom) {
             currentRoomType = "EVENT";
-        } else if (room instanceof RestRoom) {
-            currentRoomType = "REST";
         } else {
-            currentRoomType = "OTHER";
+            currentRoomType = null;
         }
     }
 
     @Override
     public void receiveOnBattleStart(AbstractRoom abstractRoom) {
-        isPlaying = false;
-        isBossStingerPlaying = false;
-        bossBattleEnded = false;
+        resetMusicStates();
         updateRoomType(abstractRoom);
         checkPlayerHealth();
     }
 
     @Override
     public void receiveOnPlayerTurnStart() {
-        if (!bossBattleEnded && !isBossStingerPlaying) {
-            checkPlayerHealth();
-        }
     }
 
     @Override
     public void receivePostBattle(AbstractRoom abstractRoom) {
         stopHealthWarningMusic();
-        resetBossStingerState();
+        resetMusicStates();
     }
 
     @Override
     public void receivePostDungeonInitialize() {
         if (CardCrawlGame.isInARun() && AbstractDungeon.currMapNode != null && AbstractDungeon.getCurrRoom() != null && AbstractDungeon.actionManager != null) {
-            isPlaying = false;
-            currentRoomType = null;
+            resetMusicStates();
             checkPlayerHealth();
         }
     }
@@ -149,6 +141,14 @@ public class ModFile implements
         }
     }
 
+    private void resetMusicStates() {
+        isPlaying = false;
+        isBossStingerPlaying = false;
+        bossBattleEnded = false;
+        currentRoomType = null;
+        currentTempMusicKey = null;
+    }
+
     public static boolean isSpecialTempTrackPlaying() {
         if (currentTempMusicKey != null) {
             for (String specialTrack : SPECIAL_TEMP_TRACKS) {
@@ -160,48 +160,48 @@ public class ModFile implements
         return false;
     }
 
-    public static void startBossStinger() {
+    public static void playBossStinger() {
+        if (isBossStingerPlaying) {
+            return; // Prevent playing anything else if the boss stinger is playing.
+        }
+
         isBossStingerPlaying = true;
-        bossBattleEnded = true;
+
+        // Play the boss victory stinger sound effect
+        CardCrawlGame.sound.play("BOSS_VICTORY_STINGER");
+
+        if (AbstractDungeon.id.equals("TheEnding")) {
+            CardCrawlGame.music.playTempBgmInstantly("STS_EndingStinger_v1.ogg", false);
+        } else {
+            switch (MathUtils.random(0, 3)) {
+                case 0:
+                    CardCrawlGame.music.playTempBgmInstantly("STS_BossVictoryStinger_1_v3_MUSIC.ogg", false);
+                    break;
+                case 1:
+                    CardCrawlGame.music.playTempBgmInstantly("STS_BossVictoryStinger_2_v3_MUSIC.ogg", false);
+                    break;
+                case 2:
+                    CardCrawlGame.music.playTempBgmInstantly("STS_BossVictoryStinger_3_v3_MUSIC.ogg", false);
+                    break;
+                case 3:
+                    CardCrawlGame.music.playTempBgmInstantly("STS_BossVictoryStinger_4_v3_MUSIC.ogg", false);
+                    break;
+            }
+        }
     }
-
-    public static void resetBossStingerState() {
-        isBossStingerPlaying = false;
-        bossBattleEnded = false;
-    }
-
-    public static AbstractGameAction checkPlayerHealth() {
-
+        public static AbstractGameAction checkPlayerHealth() {
         AbstractPlayer player = AbstractDungeon.player;
         float healthThreshold = player.maxHealth * 0.2f;
 
         if (player.currentHealth <= healthThreshold && player.currentHealth > 0 && !ModFile.isPlaying) {
             playHealthWarningMusic();
             ModFile.isPlaying = true;
-
         } else if (player.currentHealth > healthThreshold && ModFile.isPlaying) {
             stopHealthWarningMusic();
             ModFile.isPlaying = false;
         }
         return null;
     }
-
-    private static String getAreaKey() {
-        switch (AbstractDungeon.id) {
-            case "Exordium":
-                return "Exordium";
-            case "TheCity":
-                return "TheCity";
-            case "TheBeyond":
-                return "TheBeyond";
-            case "TheEnding":
-                return "TheEnding";
-            default:
-                return "Exordium";  // Default music if area isn't found
-        }
-    }
-
-
 
     private static String getBossMusicKey() {
         switch (AbstractDungeon.actNum) {
@@ -228,13 +228,18 @@ public class ModFile implements
     }
 
     public static void stopHealthWarningMusic() {
+        if (isBossStingerPlaying) {
+            return; // Prevent any music from interrupting the boss stinger.
+        }
         if (isPlaying) {
             if (AbstractDungeon.getCurrRoom() == null || AbstractDungeon.getCurrRoom().monsters == null) {
                 return;  // Early exit if not in a combat room or no monsters are present
             }
 
             boolean isFightingLagavulin = false;
+            boolean isLagavulinAsleep = false;
             boolean isFightingHexaghost = false;
+            boolean isHexaghostActivated = false;
             boolean isFightingHeart = false;
             boolean isFightingSpireSpearOrShield = false;
             boolean isEventRoomBoss = false;
@@ -250,37 +255,23 @@ public class ModFile implements
                 // Check for specific bosses and elites
                 if (mo.id.equals("Lagavulin")) {
                     isFightingLagavulin = true;
+                    isLagavulinAsleep = LagavulinSleepPatch.isLagavulinAsleep((Lagavulin) mo); // Check if Lagavulin is asleep
                 } else if (mo.id.equals("Hexaghost")) {
                     isFightingHexaghost = true;
+                    isHexaghostActivated = HexaghostActivationFieldPatch.isActivated.get(mo);
                 } else if (mo.id.equals("CorruptHeart")) {
                     isFightingHeart = true;
                 } else if (mo.id.equals("SpireShield") || mo.id.equals("SpireSpear")) {
                     isFightingSpireSpearOrShield = true;
-                } else if (mo.type == AbstractMonster.EnemyType.BOSS && AbstractDungeon.getCurrRoom() instanceof EventRoom) {
-                    // If it's an event room and the monster is of the boss type
-                    isEventRoomBoss = true;
-                    if (AbstractDungeon.getCurrRoom().event instanceof MindBloom){
-                        isEventMindBloom = true;
-                    }
+                } else if (AbstractDungeon.getCurrRoom().event instanceof MindBloom) {
+                     isEventMindBloom = true;
+
                 }
             }
 
             // Handle transitions if all monsters are dead
             if (allMonstersDead) {
-                if (isEventRoomBoss) {
-                    // Handle stinger for boss enemies in event rooms (e.g., Mind Bloom boss fight)
-                    bossBattleEnded = true;
-                    if (!isBossStingerPlaying) {
-                        playBossStinger();  // Play the stinger only once
-                        isBossStingerPlaying = true;
-                    }
-                } else if (currentRoomType.equals("BOSS")) {
-                    bossBattleEnded = true;
-                    if (!isBossStingerPlaying) {
-                        playBossStinger();  // Play the stinger only once
-                        isBossStingerPlaying = true;
-                    }
-                } else if (currentRoomType.equals("ELITE")) {
+                if (currentRoomType != null && currentRoomType.equals("ELITE")) {
                     if (isFightingLagavulin) {
                         // Switch back to Exordium music after Lagavulin dies
                         CardCrawlGame.music.silenceTempBgmInstantly();
@@ -298,28 +289,36 @@ public class ModFile implements
             } else {
                 // If monsters are still alive, play the appropriate music for elites or bosses
                 if (isFightingLagavulin) {
-                    CardCrawlGame.music.silenceTempBgmInstantly();
-                    CardCrawlGame.music.playTempBgmInstantly("STS_EliteBoss_NewMix_v1.ogg");
+                    if (!isLagavulinAsleep) {
+                        CardCrawlGame.music.silenceTempBgmInstantly();
+                        CardCrawlGame.music.playTempBgmInstantly("STS_EliteBoss_NewMix_v1.ogg");
+                    } else {
+                        CardCrawlGame.music.silenceTempBgmInstantly();
+                        CardCrawlGame.music.silenceBGM();
+                    }
                 } else if (isFightingHexaghost && !isEventMindBloom) {
-                    CardCrawlGame.music.silenceTempBgmInstantly();
-                    CardCrawlGame.music.playTempBgmInstantly("STS_Boss1_NewMix_v1.ogg");
+                    if (isHexaghostActivated) {
+                        CardCrawlGame.music.silenceTempBgmInstantly();
+                        CardCrawlGame.music.playTempBgmInstantly(getBossMusicKey());
+                    } else {
+                        CardCrawlGame.music.silenceTempBgmInstantly();
+                        CardCrawlGame.music.silenceBGM();
+                    }
                 } else if (isFightingHeart) {
                     CardCrawlGame.music.silenceTempBgmInstantly();
                     CardCrawlGame.music.playTempBgmInstantly("STS_Boss4_v6.ogg");
                 } else if (isFightingSpireSpearOrShield) {
-                    // Spire Spear/Shield case: play Act 4 boss music
                     CardCrawlGame.music.silenceTempBgmInstantly();
                     CardCrawlGame.music.playTempBgmInstantly("STS_Act4_BGM_v2.ogg");
                 } else if (isEventMindBloom) {
-                    // If the player recovers health above the threshold in an event room with a boss, restore event music
                     CardCrawlGame.music.silenceTempBgmInstantly();
                     CardCrawlGame.music.playTempBgmInstantly("MINDBLOOM");
-                } else if (currentRoomType.equals("BOSS")) {
+                } else if (currentRoomType != null && currentRoomType.equals("BOSS")) {
                     // Handle normal boss music based on the act number
                     String bossMusicKey = getBossMusicKey();
                     CardCrawlGame.music.silenceTempBgmInstantly();
                     CardCrawlGame.music.playTempBgmInstantly(bossMusicKey);
-                } else if (currentRoomType.equals("ELITE")) {
+                } else if (currentRoomType != null && currentRoomType.equals("ELITE")) {
                     // Keep playing elite music until elites are dead
                     CardCrawlGame.music.silenceTempBgmInstantly();
                     CardCrawlGame.music.playTempBgmInstantly("STS_EliteBoss_NewMix_v1.ogg");
