@@ -3,9 +3,9 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>UnimportantInfo</groupId>
 
-    <artifactId>pokemonlowhealthwarning</artifactId>
+    <artifactId>customlowhealthmusic</artifactId>
     <version>1.0.5</version>
-    <name>Pokemon Low Health Warning</name>
+    <name>Custom Low Health Music</name>
     <description>It plays low health music from Pokemon Black when you drop below 20% HP. Credit music to Nintendo/Gamefreak</description>
     <!-- Change the above for mod information. -->
 
@@ -17,7 +17,7 @@
         <ModTheSpire.version>3.18.2</ModTheSpire.version>
 
         <!-- CHANGE THIS TO MATCH YOUR MODID FIELD IN THE MAIN TodoMod CLASS FILE -->
-        <ModID>pokemonlowhealthwarning</ModID>
+        <ModID>customlowhealthmusic</ModID>
         <!-- CHANGE THIS TO MATCH YOUR MODID FIELD IN THE MAIN TodoMod CLASS FILE -->
 
         <!--CHANGE THIS TO YOUR STEAM INSTALLATION-->
